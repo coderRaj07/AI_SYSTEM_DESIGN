@@ -126,3 +126,23 @@ GROUP BY c.chunk_id
 ORDER BY citation_count DESC 
 LIMIT 10;
 ```
+
+
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: false });
+  document.addEventListener("DOMContentLoaded", function() {
+    const blocks = document.querySelectorAll('pre code.language-mermaid');
+    blocks.forEach(function(block) {
+      const div = document.createElement('div');
+      div.className = 'mermaid';
+      div.textContent = block.textContent;
+      const parent = block.closest('.highlighter-rouge') || block.closest('pre');
+      if (parent) {
+        parent.replaceWith(div);
+      }
+    });
+    mermaid.run();
+  });
+</script>

@@ -132,3 +132,23 @@ HAVING COUNT(v.id) > 10000;
 DELETE FROM knowledge_sources WHERE user_id = 'tenant-id' RETURNING id;
 -- (Foreign Keys utilizing ON DELETE CASCADE instantly wipe universal_text_blocks and vector_indices automatically).
 ```
+
+
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: false });
+  document.addEventListener("DOMContentLoaded", function() {
+    const blocks = document.querySelectorAll('pre code.language-mermaid');
+    blocks.forEach(function(block) {
+      const div = document.createElement('div');
+      div.className = 'mermaid';
+      div.textContent = block.textContent;
+      const parent = block.closest('.highlighter-rouge') || block.closest('pre');
+      if (parent) {
+        parent.replaceWith(div);
+      }
+    });
+    mermaid.run();
+  });
+</script>

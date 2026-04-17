@@ -124,3 +124,23 @@ DELETE FROM orchestration_jobs
 WHERE global_status = 'completed' 
   AND created_at < NOW() - INTERVAL '6 months';
 ```
+
+
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: false });
+  document.addEventListener("DOMContentLoaded", function() {
+    const blocks = document.querySelectorAll('pre code.language-mermaid');
+    blocks.forEach(function(block) {
+      const div = document.createElement('div');
+      div.className = 'mermaid';
+      div.textContent = block.textContent;
+      const parent = block.closest('.highlighter-rouge') || block.closest('pre');
+      if (parent) {
+        parent.replaceWith(div);
+      }
+    });
+    mermaid.run();
+  });
+</script>
