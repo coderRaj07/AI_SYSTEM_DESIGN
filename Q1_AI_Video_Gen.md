@@ -56,10 +56,13 @@ graph TD
 ### Explanatory Walkthrough (Teaching Notes)
 When approaching a system that generates a multi-scene video, the biggest architectural hurdle is that rendering scenes sequentially takes far too long. If a 10-scene video takes 1 minute per scene, a sequential approach leaves the user waiting 10 minutes.
 
-**1. The Flow Checkpoint**: The client submits the prompt. The API creates a `Project` in the database and immediately returns an HTTP 202 with the `project_id`. The client relies on WebSockets for further updates.
-**2. DAG Orchestration**: We pass the job to a DAG orchestrator (like Temporal or AWS Step Functions). The first node passes the prompt to an LLM. The LLM breaks the text into 10 distinct scenes. 
-**3. The Fan-out Pattern**: The orchestrator spawns 10 parallel serverless workers simultaneously. Worker 1 handles Scene 1, Worker 2 handles Scene 2. Generating all 10 scenes now takes roughly 1 minute combined, safely bypassing API latency bottlenecks.
-**4. The Fan-in Pattern**: The orchestrator pauses at a "Barrier Sync Phase"—waiting until all 10 workers have reported success. Finally, it triggers a single heavy FFmpeg worker to stitch the generated S3 visual and audio assets together.
+1. **The Flow Checkpoint**: The client submits the prompt. The API creates a `Project` in the database and immediately returns an HTTP 202 with the `project_id`. The client relies on WebSockets for further updates.
+
+2. **DAG Orchestration**: We pass the job to a DAG orchestrator (like Temporal or AWS Step Functions). The first node passes the prompt to an LLM. The LLM breaks the text into 10 distinct scenes. 
+
+3. **The Fan-out Pattern**: The orchestrator spawns 10 parallel serverless workers simultaneously. Worker 1 handles Scene 1, Worker 2 handles Scene 2. Generating all 10 scenes now takes roughly 1 minute combined, safely bypassing API latency bottlenecks.
+
+4. **The Fan-in Pattern**: The orchestrator pauses at a "Barrier Sync Phase"—waiting until all 10 workers have reported success. Finally, it triggers a single heavy FFmpeg worker to stitch the generated S3 visual and audio assets together.
 
 ---
 
@@ -67,6 +70,7 @@ When approaching a system that generates a multi-scene video, the biggest archit
 
 * **Handling Partial Failures (Scene Retries)**: 
   Because we isolated scenes to individual workers using the Orchestrator, if Worker 4 hits an API `429 Rate Limit` from the Video Generator provider, we do not fail the whole project. The Orchestrator natively catches the exception for Worker 4 and applies an exponential backoff. The other 9 scenes succeed and wait safely without re-computation.
+
 * **Optimizing Cost for Repeated Prompts (Semantic Vector Caching)**: 
   Using pure Hash string caching is too rigid ("coffee cup" vs. "cup of coffee" miss). By integrating `pgvector` inside PostgreSQL, we convert the user's prompt into an Embedding text vector. Before running the AI pipeline, we query Postgres to see if a past video had a 98% similarity score to this new prompt. If so, we reuse the old video and bypass the GPU entirely.
 

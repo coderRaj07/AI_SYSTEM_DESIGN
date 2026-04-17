@@ -50,10 +50,13 @@ graph TD
 ### Explanatory Walkthrough (Teaching Notes)
 When AI processes take anywhere from 1 minute to 5 hours, you cannot tie network connections to active processes. Standard HTTP requests drop after 60 seconds. We solve this by decoupling state from execution.
 
-**1. Submission & Acknowledgement**: When a user submits an action, the API creates a record tracking a new Job. The critical part here is that the API responds almost immediately with an `HTTP 202` Status ("Hey, I got the request, here's your Tracker ID") without doing the physical work. 
-**2. Enqueing**: The job specification is securely deposited into a reliable message broker format (like AWS SQS).
-**3. Execution**: A worker node specifically optimized for that job type (say, a GPU instance) natively listens to the queue. It picks up the request. To prevent users from waiting blindly, the worker calculates its progress occasionally and pushes `"Status: 40%"` to Redis in-memory.
-**4. Discovery**: The user's web browser queries the backend polling route every 3 seconds. The API reads the lighting-fast Redis key, returns `40%`, and renders a progress bar for the user seamlessly.
+1. **Submission & Acknowledgement**: When a user submits an action, the API creates a record tracking a new Job. The critical part here is that the API responds almost immediately with an `HTTP 202` Status ("Hey, I got the request, here's your Tracker ID") without doing the physical work. 
+
+2. **Enqueing**: The job specification is securely deposited into a reliable message broker format (like AWS SQS).
+
+3. **Execution**: A worker node specifically optimized for that job type (say, a GPU instance) natively listens to the queue. It picks up the request. To prevent users from waiting blindly, the worker calculates its progress occasionally and pushes `"Status: 40%"` to Redis in-memory.
+
+4. **Discovery**: The user's web browser queries the backend polling route every 3 seconds. The API reads the lighting-fast Redis key, returns `40%`, and renders a progress bar for the user seamlessly.
 
 ---
 
@@ -61,8 +64,10 @@ When AI processes take anywhere from 1 minute to 5 hours, you cannot tie network
 
 * **Message Delivery Semantics (At-Least-Once vs Exactly-Once)**: 
   Standard robust queues like RabbitMQ or AWS SQS operate on an **"At Least Once"** delivery model. This guarantees a worker *will* receive the message, but during network stutters, SQS might accidentally deliver the exact same job to *two* workers simultaneously. Achieving true "Exactly-Once" horizontally via Kafka is complex. Instead, we embrace "At-Least-Once" network delivery but enforce **Exactly-Once Business Logic** using the Idempotency Guarantee (the `FOR UPDATE SKIP LOCKED` SQL query below). If two workers receive the same job, only one can successfully lock the DB row; the other safely drops the duplicate payload.
+
 * **Scaling Workers (Depth Metrics)**:
   How do we scale automatically to save money? We use metric-driven alarms against the **Queue Depth**. If there are 500 tasks waiting in SQS, CloudWatch automatically spins up 10 new EC2 Pods. Once the queue drains back to 0, they spin down.
+
 * **Dead Letter Queues vs Retries**:
   If a task fails its try-catch logic, the worker increments `retry_attempts`. But if it hits the `max_retries` cap (e.g. 3 attempts), it means the job is fundamentally poisoned (bad file, unworkable prompt). To keep it from bouncing infinitely and costing GPU money, the system permanently removes it from the main queue and maps it to the `DeadLetters` table.
 

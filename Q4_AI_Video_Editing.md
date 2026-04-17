@@ -55,10 +55,13 @@ graph TD
 ### Explanatory Walkthrough (Teaching Notes)
 Architecting a heavy video operation boils down to one law: **Avoid rendering pixels as long as absolutely possible.** Compute is expensive; metadata text is virtually free.
 
-**1. S3 Pre-signed Uploads**: For large 5GB media files, dragging them through API Gateway limits will fail. The client requests a secure presigned upload URL from the API and blasts the file straight into an S3 bucket asynchronously.
-**2. Intelligence Extraction**: An S3 trigger invokes our AI. To prevent massive instances from churning 4K frames, we perform a lightweight extraction: we pull *only* the audio layer from the MP4 and throw it to Whisper STT. We generate JSON boundaries (e.g. `[12.5s -> 18.0s is a highlight]`).
-**3. The Virtual Preview**: The user opens their dashboard. We don't render a new video! We pass the original massive video into the React player and feed the metadata JSON to the UI, commanding the JavaScript player to skip instantly from 18 seconds back to 10. The user gets a "preview" generated entirely on the frontend via JS mapping.
-**4. Hard Rendering**: Once the user approves the edits, we queue up a severe compute array. We chunk the video horizontally logically (using FFmpeg split instructions), compress and burn-in subtitles across 10 distinct servers, and cleanly stitch the output together without dropping a frame.
+1. **S3 Pre-signed Uploads**: For large 5GB media files, dragging them through API Gateway limits will fail. The client requests a secure presigned upload URL from the API and blasts the file straight into an S3 bucket asynchronously.
+
+2. **Intelligence Extraction**: An S3 trigger invokes our AI. To prevent massive instances from churning 4K frames, we perform a lightweight extraction: we pull *only* the audio layer from the MP4 and throw it to Whisper STT. We generate JSON boundaries (e.g. `[12.5s -> 18.0s is a highlight]`).
+
+3. **The Virtual Preview**: The user opens their dashboard. We don't render a new video! We pass the original massive video into the React player and feed the metadata JSON to the UI, commanding the JavaScript player to skip instantly from 18 seconds back to 10. The user gets a "preview" generated entirely on the frontend via JS mapping.
+
+4. **Hard Rendering**: Once the user approves the edits, we queue up a severe compute array. We chunk the video horizontally logically (using FFmpeg split instructions), compress and burn-in subtitles across 10 distinct servers, and cleanly stitch the output together without dropping a frame.
 
 ---
 
@@ -66,6 +69,7 @@ Architecting a heavy video operation boils down to one law: **Avoid rendering pi
 
 * **Processing Large Files Efficiently (Parallelization)**:
   How do you scale? It fundamentally requires Splitting, Encoding, and Concatenating. We send byte-range commands to 5 workers indicating "Hey, transcode frames 0-5000", while worker B does 5001-10000. When they return, we run an `ffmpeg concat muxer` to merge streams losslessly without doing another pass. Let instances do the small bits.
+
 * **Storage for Large Media Limits**:
   We utilize S3 Lifecycle Policies. Raw inputs get moved to Amazon Glacier Deep-Archive automatically after 14 days. Rendered derivatives live in Standard tier. We don't keep duplicate intermediate `.flac` audio rips beyond worker execution.
 

@@ -54,9 +54,11 @@ graph TD
 ### Explanatory Walkthrough (Teaching Notes)
 When architects design Audio Intelligence platforms, the biggest trap is treating a 3-hour audio file as one monolithic block. 
 
-**1. Parallelizing STT Integration**: When a user submits an audio URL, our pipeline downloads the asset. A `Chunking Worker` physically splits the MP3 into dozens of 5-minute clips. We place 20 concurrent messages onto a Queue. Effectively, 20 parallel Speech-To-Text GPU instances spin up. A 3-hour file transcribes as fast as a 5-minute file.
-**2. Managing Knowledge Extraction (Vector DB over SQL)**: Now we have a giant text wall. Rather than paying for Pinecone, we install the `pgvector` extension natively into Postgres. We instruct OpenAI to convert the text chunks into mathematical arrays (Embeddings). We store the text and the vectors side-by-side in PostgreSQL.
-**3. The Chat Loop**: When the user asks a question, we convert their physical question into a Vector. We query Postgres natively utilizing Cosine Similarity equations against the vector column to pull back the 5 closest matching transcript paragraphs. We stuff these paragraphs invisibly into the LLM prompt, and the AI streams back a contextual reply (RAG).
+1. **Parallelizing STT Integration**: When a user submits an audio URL, our pipeline downloads the asset. A `Chunking Worker` physically splits the MP3 into dozens of 5-minute clips. We place 20 concurrent messages onto a Queue. Effectively, 20 parallel Speech-To-Text GPU instances spin up. A 3-hour file transcribes as fast as a 5-minute file.
+
+2. **Managing Knowledge Extraction (Vector DB over SQL)**: Now we have a giant text wall. Rather than paying for Pinecone, we install the `pgvector` extension natively into Postgres. We instruct OpenAI to convert the text chunks into mathematical arrays (Embeddings). We store the text and the vectors side-by-side in PostgreSQL.
+
+3. **The Chat Loop**: When the user asks a question, we convert their physical question into a Vector. We query Postgres natively utilizing Cosine Similarity equations against the vector column to pull back the 5 closest matching transcript paragraphs. We stuff these paragraphs invisibly into the LLM prompt, and the AI streams back a contextual reply (RAG).
 
 ---
 
@@ -64,8 +66,10 @@ When architects design Audio Intelligence platforms, the biggest trap is treatin
 
 * **Managing Context Window Limits**:
   If a podcast transcript is 60,000 words, you cannot pass it into an LLM blindly. By chunking the transcript into 500-word blocks and only sending the Top 5 most relevant blocks (via pgvector) to the LLM, we keep context usage tightly under 3,000 tokens while retaining total accuracy.
+
 * **Handling Multi-User Concurrency**:
   Each WebSocket stream is stateless. When the LLM generates a streamed token, the backend routes it via Redis Pub/Sub directly to the user socket, dropping the memory payload immediately.
+
 * **Vector DB Leaks (Multi-tenant isolation)**:
   Operating Pinecone requires complex metadata filtering. Using `pgvector` natively in Postgres is incredibly safe because tenant isolation uses standard SQL relationships: `JOIN audio_sources WHERE user_id = $1`. It is mathematically impossible for data to leak across users at the query layer.
 

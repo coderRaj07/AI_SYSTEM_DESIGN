@@ -49,9 +49,11 @@ graph TD
 ### Explanatory Walkthrough (Teaching Notes)
 When applying iterative version control to AI systems, the architecture fundamentally follows Git paradigms: Trees, Commits, and Content-Addressable Storage.
 
-**1. The "Commit" Concept**: When a user creates Version 1, we generate 5 unique scenes. We insert a `Version` row linking to the master `Project`. We store exactly what was generated.
-**2. The State Delta**: The user selects scene 3 and says "Make this angrier", pressing Generate. Our system looks at the current Head. It realizes scenes 1, 2, 4, and 5 were untouched. It bypasses the AI completely for those sections and passes the *newly isolated* prompt exclusively to the AI Generator for Scene 3. 
-**3. State Preservation via Hash Pointers**: The AI hands back the angry video clip. We calculate an exact SHA-256 hash of the video block and save it to S3 as `[hash].mp4`. We then write V2 to the database. V2's internal snapshot simply stores pointers: `[Hash1, Hash2, NEW_Hash3, Hash4]`. Rollback? Simply move the `current_head_version_id` back to V1 pointer.
+1. **The "Commit" Concept**: When a user creates Version 1, we generate 5 unique scenes. We insert a `Version` row linking to the master `Project`. We store exactly what was generated.
+
+2. **The State Delta**: The user selects scene 3 and says "Make this angrier", pressing Generate. Our system looks at the current Head. It realizes scenes 1, 2, 4, and 5 were untouched. It bypasses the AI completely for those sections and passes the *newly isolated* prompt exclusively to the AI Generator for Scene 3. 
+
+3. **State Preservation via Hash Pointers**: The AI hands back the angry video clip. We calculate an exact SHA-256 hash of the video block and save it to S3 as `[hash].mp4`. We then write V2 to the database. V2's internal snapshot simply stores pointers: `[Hash1, Hash2, NEW_Hash3, Hash4]`. Rollback? Simply move the `current_head_version_id` back to V1 pointer.
 
 ---
 
@@ -60,8 +62,10 @@ When applying iterative version control to AI systems, the architecture fundamen
 * **Storing Diffs vs Full Copies**:
   If the payload is purely textual scripts, trying to calculate and apply JSON patch differences natively inside Postgres causes huge CPU spikes on reads. Text is so tiny (a few KB) that it is geometrically vastly superior to natively save the Full Copy inside every `Snapshot` row.
   However, for *Video Assets*—this is strictly differential hashing. You never, ever save a duplicate 500MB MP4 file if the user didn't modify it. You reuse the S3 string pointer referencing the unaltered asset.
+
 * **Managing Branching & Dependencies**:
   Every version has a `parent_version_id`. This builds a directed graph. If a user modifies an old branch, the new child inherits whatever was active exactly at that point in time. 
+
 * **Garbage Collection Optimization**:
   As users iterate 300 times searching for the perfect image generation, our UI masks old assets, but S3 keeps them securely. We write an orchestrator Cronjob. Once a month, it queries our databases. Any video blob resting in S3 that has 0 hash references across all graphs is considered Orphaned and permanently expunged.
 

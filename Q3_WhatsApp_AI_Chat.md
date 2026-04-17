@@ -51,9 +51,11 @@ graph TD
 ### Explanatory Walkthrough (Teaching Notes)
 A WhatsApp clone is primarily an incredibly fast routing engine. Its goal is to get a string of text from Mobile A to Mobile B under 50ms. Adding an AI layer into this requires being careful *not* to break that golden latency rule.
 
-**1. The WebSocket Backbone**: Users connect to our Gateway via WebSockets. When Alice sends a message to Bob, the gateway immediately commits to the database, updates Bob's push notification queue, and drops the message into Bob's active WebSocket connection.
-**2. Asynchronous AI Injection**: If Alice says "@AI Summarize this", the router DOES NOT hang, wait 5 seconds for ChatGPT, and then respond to everyone. It treats the AI as just another "User" asynchronously. The router publishes an event to an AI Queue. The human message delivers instantly. 
-**3. The Ghost User AI**: An AI Worker picks up the queued task. It queries Cassandra for the last 50 messages, wraps them in a Prompt, executes the LLM call, and then literally acts like an HTTP client submitting a *new message payload* back to the Router. The Router sends the AI's response down the WebSocket natively.
+1. **The WebSocket Backbone**: Users connect to our Gateway via WebSockets. When Alice sends a message to Bob, the gateway immediately commits to the database, updates Bob's push notification queue, and drops the message into Bob's active WebSocket connection.
+
+2. **Asynchronous AI Injection**: If Alice says "@AI Summarize this", the router DOES NOT hang, wait 5 seconds for ChatGPT, and then respond to everyone. It treats the AI as just another "User" asynchronously. The router publishes an event to an AI Queue. The human message delivers instantly. 
+
+3. **The Ghost User AI**: An AI Worker picks up the queued task. It queries Cassandra for the last 50 messages, wraps them in a Prompt, executes the LLM call, and then literally acts like an HTTP client submitting a *new message payload* back to the Router. The Router sends the AI's response down the WebSocket natively.
 
 ---
 
@@ -61,8 +63,10 @@ A WhatsApp clone is primarily an incredibly fast routing engine. Its goal is to 
 
 * **Fetching Top 5 Chats Efficiently**:
   With millions of users and billions of messages, counting the total message timestamps using a `JOIN` is catastrophic. This is why the `Chats` table has a denormalized field: `last_message_at`. Every single time a new message is inserted, we update the parent chat row's timestamp. Fetching the top 5 is an instant B-Tree indexed read.
+
 * **Scaling to Millions of Messages (Partitioning)**:
   PostgreSQL struggles when table rows approach billions. Messages must be stored via Sharding/Partitioning around their `chat_id`. In systems like Cassandra, fetching the last 100 messages for a room pulls from sequential disk blocks seamlessly regardless of global throughput scale.
+
 * **AI Context Starvation and Token Limits**:
   We can't summarize a chat that's existed for 3 years inside one API call. We utilize a *Rolling Summary*. Periodically, the AI fetches its last `rolling_summary_text`, combines it with the newest 100 messages, writes a new macro-summary, and overwrites the DB array.
 

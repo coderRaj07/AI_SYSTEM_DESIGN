@@ -48,12 +48,11 @@ graph TD
 ### Explanatory Walkthrough (Teaching Notes)
 When dealing with multi-modal content, the foundational trick is normalizing every single file type down into one unified "textual block" sequence. The search engine doesn't care if it's reading an mp3 or a pdf—it only queries text chunks.
 
-**1. Normalizing the Chaos (Ingestion)**: 
-A `Header Detection lambda` determines if an upload is a video or a PDF. Videos get mapped to Whisper STT. PDFs go straight into PyMuPDF parsers. Both distinct engines map their outputs to one identical table: `UniversalTextBlocks.`
-**2. Generating Embeddings for Large Documents**:
-A 200-page PDF string destroys AI API limits. The background worker chops it into **Chunks** (e.g., 512 tokens with a 50-token overlap). Each chunk generates a floating-point embedding payload. 
-**3. The Hybrid Search Magic**: 
-Vector Search knows that "Canine" equals "Dog". Keyword Search knows that finding exactly "Invoice 894AZB" is critical. We execute ONE unified query that runs keyword search and nearest neighbor math, using Reciprocal Rank Fusion to blend them into the ultimate answer.
+1. **Normalizing the Chaos (Ingestion)**: A `Header Detection lambda` determines if an upload is a video or a PDF. Videos get mapped to Whisper STT. PDFs go straight into PyMuPDF parsers. Both distinct engines map their outputs to one identical table: `UniversalTextBlocks.`
+
+2. **Generating Embeddings for Large Documents**: A 200-page PDF string destroys AI API limits. The background worker chops it into **Chunks** (e.g., 512 tokens with a 50-token overlap). Each chunk generates a floating-point embedding payload. 
+
+3. **The Hybrid Search Magic**: Vector Search knows that "Canine" equals "Dog". Keyword Search knows that finding exactly "Invoice 894AZB" is critical. We execute ONE unified query that runs keyword search and nearest neighbor math, using Reciprocal Rank Fusion to blend them into the ultimate answer.
 
 ---
 
@@ -61,8 +60,10 @@ Vector Search knows that "Canine" equals "Dog". Keyword Search knows that findin
 
 * **PgVector vs Dedicated Vector DBs (Pinecone/Milvus)**: 
   While `pgvector` inside PostgreSQL allows executing elegant hybrid SQL queries natively, at massive scale (billions of embeddings), Postgres RAM limitations will bottleneck heavily. An enterprise system often maintains PostgreSQL explicitly for relational state, while pumping vectors into a dedicated external Pinecone cluster. Pinecone builds highly-optimized ANN (Approximate Nearest Neighbor) indices independently, preventing heavy vector math from blocking your transactional Postgres engine.
+
 * **Ranking Results (Reciprocal Rank Fusion)**:
   RRF is a mathematical formula. If Document A is ranked #1 by Keyword and #10 by Semantic, RRF scores them mathematically to find the best consensus match without requiring external complicated Machine Learning rerankers. Doing this via SQL Common-Table-Expressions (CTEs) is incredibly efficient.
+
 * **Corrupted or Unreadable Data Blocks**:
   Scanning complex messy PDFs might cause Python parsers to output random garbage unicode blocks. If a chunk has 80% non-ascii symbols, we silently drop the chunk and label it a bad read, preventing it from polluting the Vector DB table.
 
