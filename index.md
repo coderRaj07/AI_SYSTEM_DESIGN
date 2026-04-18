@@ -10,6 +10,10 @@ Welcome to the System Design preparation index. This repository focuses on moder
 * [Q5: Multi-Modal Content Search System](./Q5_Multi_Modal_Search.md)
 * [Q6: Async AI Job Orchestration System](./Q6_Async_Job_Orchestration.md)
 * [Q7: AI Content Creation with Versioning](./Q7_AI_Content_Versioning.md)
+* [Q8: Meeting Action Items Tracker](./Q8_Meeting_Action_Tracker.md)
+* [Q9: Workflow Builder Lite](./Q9_Workflow_Builder_Lite.md)
+* [Q10: Competitive Intelligence Tracker](./Q10_Competitive_Intelligence_Tracker.md)
+* [Q11: Website UX Reviewer](./Q11_Website_UX_Reviewer.md)
 
 ---
 *Created for deep-dive technical engineering notes.*
